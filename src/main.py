@@ -12,9 +12,6 @@ import sys
 # sys.stdout = open('../data/stable_long3_gyro', 'w')
 out_file = open('./flip_out.txt', 'w')
 
-# 记录采样频率
-# 约50ms
-import time
 
 # Mouse and Keyboard
 mouse = MController()
