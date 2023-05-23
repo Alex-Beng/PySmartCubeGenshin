@@ -1,10 +1,11 @@
+from utils import get_quaternion, quat2rotm
+
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import product, combinations
 import matplotlib.animation as animation
 from numpy import sin, cos
-from scipy.spatial.transform import Rotation
 
 
 def rorate_mat_generator(file_path):
@@ -19,21 +20,17 @@ def rorate_mat_generator(file_path):
     datas = read_file(file_path)
     
     for dt in datas:
-        # value = ''.join([bin(bt+256)[3:] for bt in dt])
-        value = dt
+        dec = dt.strip()
+        value = ''.join([bin(bt+256)[3:] for bt in dec]) if len(dec) == 20 else dec
         mode = int(value[0:4], 2)
         if mode != 1:
             continue
-        # compute quaternion
-        quat = []
-        for i in range(4):
-            sign = -1 if int(value[4+i*16]) == 1 else 1
-            v = int(value[5+i*16 : 20+i*16], 2)
-            v *= sign
-            quat.append(v / 32767)
-        rot = Rotation.from_quat(quat)
-        rotm = rot.as_matrix()
-        yield rotm
+
+        qs = get_quaternion(dec)
+        rotms = [quat2rotm(q) for q in qs]
+
+        for qr in zip(qs, rotms):
+            yield qr
 
 fig = plt.figure()
 ax = fig.add_subplot(projection='3d')
@@ -76,24 +73,36 @@ for i in range(3):
     e[i] = coor_len // 2
     v = ax.plot3D(*zip(s, e), color=coor_color[i])
     vertex.append(v + [s, e])
+# gravity?
+s = [0]*3
+e = [0]*3
+v = ax.plot3D(*zip(s, e), color='pink')
+vertex.append(v + [s, e])
 
-rotm_gen = rorate_mat_generator('../data/flip_out_bin.txt')
+rotm_gen = rorate_mat_generator('../data/yrot.bin')
 rotms = [m for m in rotm_gen]
 
 def update(frame, vertex, rad):
     print(f"f: {frame}")
     rad += 1*frame
 
-    rotm = rotms[frame]
-    for v, s, e in vertex:
+    q, rotm = rotms[frame]
+    for v, s, e in vertex[:-1]:
         # apply rotation matrix to each vertex
         s_rotated = np.dot(rotm, s)
         e_rotated = np.dot(rotm, e)
         v.set_data_3d(*zip(s_rotated,e_rotated))
-    
+    # update gravity
+    v, s, e = vertex[-1]
+    e[0] = 2 * (q[1]*q[3] - q[0]*q[2])
+    e[1] = 2 * (q[0]*q[1] + q[2]*q[3])
+    e[2] = q[0]**2 - q[1]**2 - q[2]**2 + q[3]**2
+    e = [-i*10 for i in e]
+    v.set_data_3d(*zip(s,e))
+
     return vertex
 
-ani = animation.FuncAnimation(fig, update, frames=len(rotms)-80, fargs=(vertex, rad), interval=50)
+ani = animation.FuncAnimation(fig, update, frames=len(rotms), fargs=(vertex, rad), interval=50)
 
 plt.show()
 # ani.save('../data/test2.gif', writer='imagemagick', fps=30)

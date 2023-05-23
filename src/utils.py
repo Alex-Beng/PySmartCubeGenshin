@@ -1,3 +1,36 @@
+from scipy.spatial.transform import Rotation
+
+# get quatoernion from BLE decoded data
+def get_quaternion(dec):
+    assert(len(dec) == 20 or len(dec) == 160)
+
+    value = ''.join([bin(bt+256)[3:] for bt in dec]) if len(dec) == 20 else dec
+    mode = int(value[0:4], 2)
+    assert(mode == 1)
+
+    qs = []
+    q = [0]*4
+    for i in range(4):
+        sign = -1 if int(value[4+i*16]) == 1 else 1
+        v = int(value[5+i*16 : 20+i*16], 2)
+        v *= sign
+        v /= (2**15-1)
+        q[i] = v
+    qs.append(q)
+
+    q = [0]*4
+    for i in range(4):
+        sign = -1 if int(value[80+i*16]) == 1 else 1
+        v = int(value[81+i*16 : 96+i*16], 2)
+        v *= sign
+        v /= (2**15-1)
+        q[i] = v
+    qs.append(q)
+
+    return qs
+
+def quat2rotm(q):
+    return Rotation.from_quat(q).as_matrix()
 
 def devices_selection(devices):
     selected_device = None
