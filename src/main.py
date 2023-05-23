@@ -81,40 +81,6 @@ def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
     
     # print(' '.join([hex(d+256)[3:] for d in dec]), end="\n", file=out_file)
     if mode == 1:
-        # may be first 3 x 16bit(signed 16) is the quaternion?
-        # from https://github.com/AshleyF/briefcubing/issues/4
-        # lets see
-        # may not
-
-        # print("%.3f %.3f %.3f" % (x, y, z))
-        # 只保留三位小数输出datas为一行
-        # print('\r'+' '.join([f'{d/2**16:.3f}' for d in datas]), end='')
-        # print(dec)
-        # 输出 hex data
-        know_bits_num = []
-        know_bits = []
-        for i in range(4):
-            # 原码传递有符号数
-            sign = -1 if int(value[4+i*16]) == 1 else 1
-            v = int(value[5+i*16 : 20+i*16], 2)
-            v *= sign
-            know_bits_num.append(v)
-
-            # know_bits_num.append( int(value[4+i*16 : 20+i*16], 2) )
-            know_bits.append( hex(int(value[4+i*16 : 20+i*16], 2) + 65536)[3:] )
-        know_bits2_num = []
-        know_bits2 = []
-        for i in range(4):
-            know_bits2_num.append( int(value[80+i*16 : 96+i*16], 2) )
-            know_bits2.append( hex(int(value[80+i*16 : 96+i*16], 2) + 65536)[3:] )
-        
-        
-        # 验证四元数，模等于1
-        nums_to1 = [know_bits_num[i] / 32767 for i in range(4)]
-        print(nums_to1, sum([i*i for i in nums_to1]))
-
-        
-
         
         # print(' '.join(know_bits), end=" ")
         # print(hex(int(value[68:80], 2) + 2**12)[3:])
