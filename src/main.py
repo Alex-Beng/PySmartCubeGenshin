@@ -1,51 +1,11 @@
 from aes import AES
+from gancube import GanCube
+from utils import devices_selection
 
-import math
 import asyncio
-from bleak import BleakScanner, BleakClient
+from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from pynput.keyboard import Key, Controller
 from pynput.mouse import Button, Controller as MController
-
-# FOR GAN i 3
-SERVICE_UUID        = '6e400001-b5a3-f393-e0a9-e50e24dc4179'
-CHRCT_UUID_READ     = '28be4cb6-cd67-11e9-a32f-2a2ae2dbcce4'
-CHRCT_UUID_WRITE    = '28be4a4a-cd67-11e9-a32f-2a2ae2dbcce4'
-
-DECODER = None
-
-def init_kiv(mac):
-    '''
-    Initialize the key and iv for the GAN CUBE AES-128 encryption
-    '''
-    key = [1,2,66,40,49,145,22,7,32,5,24,84,66,17,18,83]
-    iv = [17,3,50,40,33,1,118,39,32,149,120,20,50,18,2,67]
-
-    mac = list(map(int, mac.split(':'), [16]*6))
-    for i in range(6):
-        key[i] = (key[i] + mac[5-i]) % 255
-        iv[i] = (iv[i] + mac[5-i]) % 255
-    
-    return key, iv
-
-def encrypt(data):
-    assert(len(data) == 20)
-
-    iv = DECODER.iv
-    enc = DECODER.encrypt([data[i] ^ iv[i] for i in range(16)]) + [0]*4
-    enc = enc[:4] + DECODER.encrypt([enc[i+4] ^ iv[i] for i in range(16)])
-    return enc
-
-def decrypt(enc):
-    assert(len(enc) == 20)
-
-    iv = DECODER.iv
-    _block = DECODER.decrypt(enc[4:])
-    dec = [_block[i] ^ iv[i]  for i in range(16)]
-    _block = DECODER.decrypt(enc[:4] + dec[:12]) 
-    dec = [_block[i] ^ iv[i] for i in range(16)] + dec[12:]
-    
-    return dec
-
 
 # 将所有输出重定向到文件
 import sys
@@ -61,15 +21,6 @@ prev_time = None
 # Mouse and Keyboard
 mouse = MController()
 keyboard = Controller()
-
-# convert 2's complement binary string to int
-def twos_comp (val, bits):
-    # convert binary string to int
-    val = int (val, 2)
-    # if sign bit is set, subtract 2^bits
-    if val & (1 << (bits - 1)):
-        val -= 1 << bits
-    return val
 
 
 fb_state = 0
@@ -117,13 +68,13 @@ def do_mskb(moves: [str]):
         keyboard.release('f')
     
 
+cube = None
 
-
-def read_handler(sender, data):
-    global first_time, prev_time
+def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
+    global first_time, prev_time, cube
     data = [int(i) for i in data]
     
-    dec = decrypt(data)
+    dec = cube.decrypt(data)
     
     value = ''.join([bin(bt+256)[3:] for bt in dec])
 
@@ -221,74 +172,56 @@ def read_handler(sender, data):
         print("get battery")
     else:
         print(f"get wrong mode: {mode}")
-    
+
 
 async def main():
-    global DECODER, iv
+    global cube
 
-    # Search the GAN CUBE
-    print("Searching for GAN CUBE...")
+    # Search BLE CUBEs
+    print("Searching for CUBEs...")
     devices = await BleakScanner.discover()
-    gan_devices = []
+
+    possible_devices = []
     for d in devices:
+        # ONLY GAN CUBE NOW
         if d.name and d.name.startswith("GAN"):
-            gan_devices.append(d)
-    cube = None
-    if len(gan_devices) == 0:
-        print("No GAN CUBE found")
-        return
-    elif len(gan_devices) == 1:
-        print(f"Found GAN CUBE: {gan_devices[0].name}")
-        cube = gan_devices[0]
-    else:
-        device_names = [d.name for d in gan_devices]
-        print("Multiple GAN CUBEs found, please select one:")
-        for i, name in enumerate(device_names):
-            print(f"{i}: {name}")
-        while cube is None:
-            try:
-                selection = int(input("Selection: "))
-                cube = gan_devices[selection]
-            except ValueError:
-                print("Invalid selection")
-            except IndexError:
-                print("Invalid selection")
+            possible_devices.append(d)
 
-    key, iv = init_kiv(cube.address)
-    DECODER = AES(key)
-    DECODER.iv = iv
-
+    selected_device = devices_selection(possible_devices)
+    
+    if selected_device.name.startswith("GAN"):
+        cube = GanCube(selected_device.address)
+        cube.name = selected_device.name
+        cube.address = selected_device.address
+    
     print(f"Connecting to {cube.name}, {cube.address}")
     async with BleakClient(cube.address) as client:
         
         cube_service = None
         for service in client.services:
-            if service.uuid == SERVICE_UUID:
+            if service.uuid == cube.SERVICE_UUID:
                 cube_service = service
                 break
         
         if cube_service is None:
-            print("Unable to find GAN CUBE service or unsppported GAN CUBEs")
+            print(f"Unable to find {cube.BRAND} CUBE service or unsppported {cube.BRAND} CUBEs")
             return
         
         read_chrct = None
         write_chrct = None
         for chrct in cube_service.characteristics:
-            if chrct.uuid == CHRCT_UUID_READ:
+            if chrct.uuid == cube.CHRCT_UUID_READ:
                 read_chrct = chrct
-            elif chrct.uuid == CHRCT_UUID_WRITE:
+            elif chrct.uuid == cube.CHRCT_UUID_WRITE:
                 write_chrct = chrct
         
         if read_chrct is None or write_chrct is None:
-            print("Unable to find GAN CUBE read or write characteristic")
+            print(f"Unable to find {cube.BRAND} CUBE read or write characteristic")
             return
-        
-        print("Connected to GAN CUBE")
+        print(f"Connected to {cube.BRAND} CUBE")
 
-        await client.start_notify(read_chrct, read_handler)
-
+        await client.start_notify(read_chrct, gan_read_handler)
         while True:
-
             await asyncio.sleep(0.1)
 
 

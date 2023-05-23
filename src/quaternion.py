@@ -61,16 +61,21 @@ ax.scatter([0],[0],[0],color="black",s=10)
 d = [-4, 4]
 vertex = []
 rad = 0
-theta = np.radians(rad) # rotation angle in radians
 colors = ['r', 'g', 'b', 'y', 'c', 'm']
 cnt = 0
-for s, e in combinations(np.array(list(product(d,d,d))), 2):
-    if np.sum(np.abs(s-e)) == d[1]-d[0]: 
-        # init vertex
-        v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
-        cnt += 1
-        vertex.append(v + [s, e])
-
+# for s, e in combinations(np.array(list(product(d,d,d))), 2):
+#     if np.sum(np.abs(s-e)) == d[1]-d[0]: 
+#         # init vertex
+#         v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
+#         cnt += 1
+#         vertex.append(v + [s, e])
+# draw line
+for i in range(3):
+    s = [0]*3
+    e = [0]*3
+    e[i] = coor_len // 2
+    v = ax.plot3D(*zip(s, e), color=coor_color[i])
+    vertex.append(v + [s, e])
 
 rotm_gen = rorate_mat_generator('../data/flip_out_bin.txt')
 rotms = [m for m in rotm_gen]
@@ -78,7 +83,6 @@ rotms = [m for m in rotm_gen]
 def update(frame, vertex, rad):
     print(f"f: {frame}")
     rad += 1*frame
-    theta = np.radians(rad)
 
     rotm = rotms[frame]
     for v, s, e in vertex:
