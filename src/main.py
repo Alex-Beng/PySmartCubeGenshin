@@ -7,7 +7,7 @@ from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from pynput.keyboard import Key, Controller
 from pynput.mouse import Button, Controller as MController
 
-# 将所有输出重定向到文件
+# 重定向stdout到文件 or 直接输出到out_file
 import sys
 # sys.stdout = open('../data/stable_long3_gyro', 'w')
 out_file = open('./flip_out.txt', 'w')
