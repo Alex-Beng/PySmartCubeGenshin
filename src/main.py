@@ -15,8 +15,6 @@ out_file = open('./flip_out.txt', 'w')
 # 记录采样频率
 # 约50ms
 import time
-first_time = True
-prev_time = None
 
 # Mouse and Keyboard
 mouse = MController()
@@ -71,7 +69,7 @@ def do_mskb(moves: [str]):
 cube = None
 
 def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
-    global first_time, prev_time, cube
+    global cube
     data = [int(i) for i in data]
     
     dec = cube.decrypt(data)
@@ -86,11 +84,6 @@ def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
     
     # print(' '.join([hex(d+256)[3:] for d in dec]), end="\n", file=out_file)
     if mode == 1:
-
-        if first_time:
-            first_time = False
-            prev_time = time.time()
-
         # may be first 3 x 16bit(signed 16) is the quaternion?
         # from https://github.com/AshleyF/briefcubing/issues/4
         # lets see
@@ -138,7 +131,6 @@ def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
         # print(' '.join([hex(d+256)[3:] for d in dec]), end="\n")        
         # print()
         # print('\r' + ' '.join([hex(d+256)[3:] for d in dec]), end="")
-        prev_time = time.time()
         pass
     
     # 采数据呢
