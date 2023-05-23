@@ -1,3 +1,4 @@
-# 蓝牙characteristic notify的间隔
+# Bluetooth characteristic notify gap
 
-约 50 ms
+about 50 ms
+
