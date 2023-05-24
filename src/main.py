@@ -68,6 +68,79 @@ def do_mskb(moves: [str]):
         keyboard.press('f')
         keyboard.release('f')
     
+async def plt_plot():
+    # viz
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.set_aspect("auto")
+    ax.set_autoscale_on(True)
+    # draw cuboid
+    r = [-10, 10]
+    for s, e in combinations(np.array(list(product(r,r,r))), 2):
+        if np.sum(np.abs(s-e)) == r[1]-r[0]:
+            ax.plot3D(*zip(s,e), color="black")
+    # draw coors
+    coor_len = 10
+    coor_color = ['r', 'g', 'b']
+    for i in range(3):
+        s = [0]*3
+        e = [0]*3
+        s[i] = coor_len
+        ax.plot3D(*zip(s,e), color=coor_color[i])
+    # draw point
+    ax.scatter([0],[0],[0],color="black",s=100)
+    d = [-4, 4]
+    vertex = []
+    rad = 0
+    colors = ['r', 'g', 'b', 'y', 'c', 'm']
+    cnt = 0
+    # for s, e in combinations(np.array(list(product(d,d,d))), 2):
+    #     if np.sum(np.abs(s-e)) == d[1]-d[0]: 
+    #         # init vertex
+    #         v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
+    #         cnt += 1
+    #         vertex.append(v + [s, e])
+    # draw line
+    for i in range(3):
+        s = [0]*3
+        e = [0]*3
+        e[i] = - coor_len // 2
+        # v = ax.plot3D(*zip(s, e), color=coor_color[i])
+        # vertex.append(v + [s, e])
+    # draw gravity
+    s = [0]*3 
+    e = [0]*3
+    v = ax.plot3D(*zip(s, e), color='pink')
+    vertex.append(v + [s, e])
+
+    while True:
+        q, rotm = await quat_queue.get()
+
+        for v, s, e in vertex[:-1]:
+            # apply rotation matrix to each vertex
+            s_rotated = np.dot(rotm, s)
+            e_rotated = np.dot(rotm, e)
+            v.set_data_3d(*zip(s_rotated,e_rotated))
+        # update gravity
+        v, s, e = vertex[-1]
+        e[0] = 2 * (q[1]*q[3] - q[0]*q[2])
+        e[1] = 2 * (q[0]*q[1] + q[2]*q[3])
+        e[2] = q[0]**2 - q[1]**2 - q[2]**2 + q[3]**2
+
+        # compute ypr
+        ypr = [0]*3
+        ypr[0] = atan2(2*q[1]*q[2] - 2*q[0]*q[3], 2*q[0]*q[0] + 2*q[1]*q[1] - 1)
+        ypr[1] = atan(e[0] / sqrt(e[1]*e[1] + e[2]*e[2]))
+        ypr[2] = atan(e[1] / sqrt(e[0]*e[0] + e[2]*e[2]))
+        ypr = [i*180/pi for i in ypr]
+        # print(f'ypr: {ypr}')
+        # print(f'grav: {e}')
+
+        e = [-i*10 for i in e]
+        v.set_data_3d(*zip(s,e))
+        plt.draw()
+        plt.pause(0.001)
+        await asyncio.sleep(0.001)
 
 cube = None
 quat_queue = asyncio.Queue()
@@ -175,7 +248,7 @@ async def main():
 
         await client.start_notify(read_chrct, gan_read_handler)
 
-        # ask for battery
+        # task for asking battery
         async def ask_battery():
             bts = [0]*20
             bts[0] = 9
@@ -188,83 +261,9 @@ async def main():
         bts[0] = 5
         await client.write_gatt_char(write_chrct, bytes(cube.encrypt(bts)))
         asyncio.create_task(ask_battery())
-
-        # 可视化
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        ax.set_aspect("auto")
-        ax.set_autoscale_on(True)
-        # draw cuboid
-        r = [-10, 10]
-        for s, e in combinations(np.array(list(product(r,r,r))), 2):
-            if np.sum(np.abs(s-e)) == r[1]-r[0]:
-                ax.plot3D(*zip(s,e), color="black")
-        # draw coors
-        coor_len = 10
-        coor_color = ['r', 'g', 'b']
-        for i in range(3):
-            s = [0]*3
-            e = [0]*3
-            s[i] = coor_len
-            ax.plot3D(*zip(s,e), color=coor_color[i])
-        # draw point
-        ax.scatter([0],[0],[0],color="black",s=100)
-        d = [-4, 4]
-        vertex = []
-        rad = 0
-        colors = ['r', 'g', 'b', 'y', 'c', 'm']
-        cnt = 0
-        # for s, e in combinations(np.array(list(product(d,d,d))), 2):
-        #     if np.sum(np.abs(s-e)) == d[1]-d[0]: 
-        #         # init vertex
-        #         v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
-        #         cnt += 1
-        #         vertex.append(v + [s, e])
-        # draw line
-        for i in range(3):
-            s = [0]*3
-            e = [0]*3
-            e[i] = - coor_len // 2
-            # v = ax.plot3D(*zip(s, e), color=coor_color[i])
-            # vertex.append(v + [s, e])
-        # draw gravity
-        s = [0]*3 
-        e = [0]*3
-        v = ax.plot3D(*zip(s, e), color='pink')
-        vertex.append(v + [s, e])
-
-        async def update_plot():
-            while True:
-                q, rotm = await quat_queue.get()
-
-                for v, s, e in vertex[:-1]:
-                    # apply rotation matrix to each vertex
-                    s_rotated = np.dot(rotm, s)
-                    e_rotated = np.dot(rotm, e)
-                    v.set_data_3d(*zip(s_rotated,e_rotated))
-                # update gravity
-                v, s, e = vertex[-1]
-                e[0] = 2 * (q[1]*q[3] - q[0]*q[2])
-                e[1] = 2 * (q[0]*q[1] + q[2]*q[3])
-                e[2] = q[0]**2 - q[1]**2 - q[2]**2 + q[3]**2
-
-                # compute ypr
-                ypr = [0]*3
-                ypr[0] = atan2(2*q[1]*q[2] - 2*q[0]*q[3], 2*q[0]*q[0] + 2*q[1]*q[1] - 1)
-                ypr[1] = atan(e[0] / sqrt(e[1]*e[1] + e[2]*e[2]))
-                ypr[2] = atan(e[1] / sqrt(e[0]*e[0] + e[2]*e[2]))
-                ypr = [i*180/pi for i in ypr]
-                # print(f'ypr: {ypr}')
-                # print(f'grav: {e}')
-
-                e = [-i*10 for i in e]
-                v.set_data_3d(*zip(s,e))
-                plt.draw()
-                plt.pause(0.001)
-                await asyncio.sleep(0.001)
-                
-        plt.show(block=False)
-        await update_plot()
+        asyncio.create_task(plt_plot())
+        while True:
+            await asyncio.sleep(1)
 
 
 if __name__ == "__main__":
