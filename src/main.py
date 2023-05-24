@@ -103,21 +103,26 @@ async def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
             prev_moves.append( pre_move )
             if m >= 12:
                 # WRONG
+                print(f'WARNING wrong move: {m}')
                 pass
-                # print(f'le: {m}')
-            # print(f'get: {pre_move}')
         do_mskb(prev_moves)
         print(f'move_cnt: {move_cnt}, {timeoffs}, {prev_moves}')
-    # print(dec, mode)
     elif mode == 4:
-        # print("get faces")
-        pass
+        print("reveived faces info")
     elif mode == 5:
-        print("get info")
+        print("reveived hardware info")
+        hw_ver = f'{int(value[8:16], 2)}.{int(value[16:24], 2)}'
+        sw_ver = f'{int(value[24:32], 2)}.{int(value[32:40], 2)}'
+        dev_name = ''.join([chr(int(value[40 + i*8 : 48 + i*8], 2)) for i in range(8)])
+        gyro_enable = int(value[104], 2) == 1
+        print(f'hw_ver: {hw_ver}, sw_ver: {sw_ver}, dev_name: {dev_name}, gyro_enable: {gyro_enable}')
+
     elif mode == 9:
-        print("get battery")
+        print("reveived battery info")
+        battery = int(value[8:16], 2)
+        print(f'battery: {battery}%')
     elif mode == 13:
-        print("get good bye")
+        print("reveived good bye")
     else:
         print(f"get wrong mode: {mode}")
 
@@ -169,6 +174,21 @@ async def main():
         print(f"Connected to {cube.BRAND} CUBE")
 
         await client.start_notify(read_chrct, gan_read_handler)
+
+        # ask for battery
+        async def ask_battery():
+            bts = [0]*20
+            bts[0] = 9
+            bts = cube.encrypt(bts)
+            while True:
+                await client.write_gatt_char(write_chrct, bytes(bts))
+                await asyncio.sleep(30)
+        # ask for hardware info
+        bts = [0]*20
+        bts[0] = 5
+        await client.write_gatt_char(write_chrct, bytes(cube.encrypt(bts)))
+        asyncio.create_task(ask_battery())
+
         # 可视化
         fig = plt.figure()
         ax = fig.add_subplot(projection='3d')
