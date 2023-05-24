@@ -1,4 +1,5 @@
 from scipy.spatial.transform import Rotation
+import numpy as np
 
 # get quatoernion from BLE decoded data
 def get_quaternion(dec):
@@ -30,6 +31,17 @@ def get_quaternion(dec):
     return qs
 
 def quat2rotm(q):
+    # written by myself
+    # according to https://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
+    # w, x, y, z = q
+    # R = [
+    #     [1-2*(y**2+z**2), 2*(x*y-z*w), 2*(x*z+y*w)],
+    #     [2*(x*y+z*w), 1-2*(x**2+z**2), 2*(y*z-x*w)],
+    #     [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x**2+y**2)]
+    # ]
+    # return np.array(R)
+    # forgive for this shit
+
     return Rotation.from_quat(q).as_matrix()
 
 def devices_selection(devices):
