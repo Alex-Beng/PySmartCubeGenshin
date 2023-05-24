@@ -66,3 +66,9 @@ _block = AES.decrypt(enc[:4] + dec[:12])
 dec = [_block[i] ^ iv[i] for i in range(16)] + dec[12:]
 
 ```
+
+# GAN end bytes
+
+```python
+[208, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+```
