@@ -1,6 +1,6 @@
 from aes import AES
 from gancube import GanCube
-from utils import devices_selection, get_quaternion, quat2rotm
+from utils import devices_selection, get_quaternion, quat2rotm, quat2ypr, quat2gravity
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -8,7 +8,10 @@ import numpy as np
 from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from pynput.keyboard import Key, Controller
 from pynput.mouse import Button, Controller as MController
+import pydirectinput # for mouse
+pydirectinput.PAUSE = 0
 
+from ctypes import windll, c_uint
 from math import atan2, asin, atan, sqrt, pi
 import asyncio
 from itertools import product, combinations
@@ -18,6 +21,8 @@ import sys
 # sys.stdout = open('../data/stable_long3_gyro', 'w')
 out_file = open('../data/freerot.bin', 'w')
 
+def move_mouse(x, y):
+    pydirectinput.move(x, y, relative=True)
 
 # Mouse and Keyboard
 mouse = MController()
@@ -27,7 +32,8 @@ keyboard = Controller()
 cube = None
 
 # asyncio queues
-quat_queue = asyncio.Queue()
+qm_plot_queue = asyncio.Queue()
+q_mouse_queue = asyncio.Queue()
 move_queue = asyncio.Queue()
 gyro_en_queue = asyncio.Queue()
 
@@ -77,8 +83,34 @@ async def keyboard_handler():
             keyboard.release('f')
 
 async def mouse_handler():
+    # pitch and roll zero calibration for 50 times
+    print("Calibrating...")
+    p_sum = 0.0
+    r_sum = 0.0
+    for i in range(50):
+        q = await q_mouse_queue.get()
+        # print(q)
+        ypr = quat2ypr(q)
+        p_sum += ypr[1]
+        r_sum += ypr[2]
+        await asyncio.sleep(0.001)
+    p_zero = p_sum / 50
+    r_zero = r_sum / 50
+    print(f"Calibration finished. p_zero: {p_zero}, r_zero: {r_zero}")
+
     while True:
-        await asyncio.sleep(1)
+        q = await q_mouse_queue.get()
+        ypr = quat2ypr(q)
+        # map pitch and roll to mouse horizontal and vertical
+        d_p = ypr[1] - p_zero
+        d_r = ypr[2] - r_zero
+        def scalex(x):
+            x = int(0.4*x)
+            return x if abs(x) > 2 else 0
+        # mouse.move(-scalex(d_p), -scalex(d_r))
+        move_mouse(-scalex(d_p), -scalex(d_r))
+
+        await asyncio.sleep(0.001)
 
 async def plt_plot():
     # viz
@@ -126,7 +158,7 @@ async def plt_plot():
     vertex.append(v + [s, e])
 
     while True:
-        q, rotm = await quat_queue.get()
+        q, rotm = await qm_plot_queue.get()
 
         for v, s, e in vertex[:-1]:
             # apply rotation matrix to each vertex
@@ -173,8 +205,10 @@ async def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
         # get quat and rotm
         qs = get_quaternion(dec)
         rotms = [quat2rotm(q) for q in qs]
+        for q in qs:
+            await q_mouse_queue.put(q)
         for qr in zip(qs, rotms):
-            await quat_queue.put(qr)
+            await qm_plot_queue.put(qr)
     elif mode == 2:
         move_cnt = int(value[4:12], 2)
         timeoffs = []
@@ -269,13 +303,14 @@ async def main():
         bts[0] = 5
         await client.write_gatt_char(write_chrct, bytes(cube.encrypt(bts)))
         asyncio.create_task(ask_battery())
-        asyncio.create_task(plt_plot())
+        # asyncio.create_task(plt_plot())
         asyncio.create_task(keyboard_handler())
 
         gyro_en = await gyro_en_queue.get()
         # only support gyro to mouse map
         if gyro_en:
             print("gyro air mouse enable")
+            # 需要
             asyncio.create_task(mouse_handler())
 
         while True:
