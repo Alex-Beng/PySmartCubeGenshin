@@ -42,3 +42,27 @@ for i in range(4):
 ```
 
 for older gan devices, see: [AshleyF/briefcubing/issues/4](https://github.com/AshleyF/briefcubing/issues/4), which is not tested by me due to the lack of old gan devices.
+
+# GAN en/decrypt format
+
+new gan cubes using AES128 to encrypt the data
+
+```python
+KEY = [1,2,66,40,49,145,22,7,32,5,24,84,66,17,18,83]
+IV = [17,3,50,40,33,1,118,39,32,149,120,20,50,18,2,67]
+
+# the truly key and iv will be add mac mod to 0xff for the first 6 bytes
+
+AES = AES(key)
+
+# encrypt
+enc = AES.encrypt([bts[i] ^ iv[i] for i in range(16)]) + [0]*4
+enc = enc[:4] + AES.encrypt([enc[i+4] ^ iv[i] for i in range(16)])
+
+# decrypt
+_block = AES.decrypt(enc[4:])
+dec = [_block[i] ^ iv[i]  for i in range(16)]
+_block = AES.decrypt(enc[:4] + dec[:12]) 
+dec = [_block[i] ^ iv[i] for i in range(16)] + dec[12:]
+
+```
