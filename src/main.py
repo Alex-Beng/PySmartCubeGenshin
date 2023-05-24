@@ -201,12 +201,3 @@ if __name__ == "__main__":
     
     print(enc)
 
-    # decrypt
-    _block = AES.decrypt(enc[4:])
-    dec = [_block[i] ^ iv[i]  for i in range(16)]
-    _block = AES.decrypt(enc[:4] + dec[:12]) 
-    dec = [_block[i] ^ iv[i] for i in range(16)] + dec[12:]
-    print(dec)
-
-    # end bytes
-    [208, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
