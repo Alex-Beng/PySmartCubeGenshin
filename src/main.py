@@ -125,6 +125,8 @@ def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
         print("get info")
     elif mode == 9:
         print("get battery")
+    elif mode == 13:
+        print("get good bye")
     else:
         print(f"get wrong mode: {mode}")
 
