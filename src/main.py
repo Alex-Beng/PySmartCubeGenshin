@@ -23,51 +23,63 @@ out_file = open('../data/freerot.bin', 'w')
 mouse = MController()
 keyboard = Controller()
 
+# cube
+cube = None
 
-fb_state = 0
-lr_state = 0
-def do_mskb(moves: [str]):
-    global lr_state, fb_state
-    if moves[0] == "L'":
-        if fb_state == 1:
-            pass
-        elif fb_state == 0:
-            keyboard.press('w')
-            fb_state = 1
-        elif fb_state == -1:
-            keyboard.release('s')
-            fb_state = 0
-    elif moves[0] == "L ":
-        if fb_state == 1:
-            keyboard.release('w')
-            fb_state = 0
-        elif fb_state == 0:
-            keyboard.press('s')
-            fb_state = -1
-        elif fb_state == -1:
-            pass
-    elif moves[0] == "U'":
-        if lr_state == -1:
-            pass
-        elif lr_state == 0:
-            keyboard.press('a')
-            lr_state = -1
-        elif lr_state == 1:
-            keyboard.release('d')
-            lr_state = 0
-    elif moves[0] == "U ":
-        if lr_state == -1:
-            keyboard.release('a')
-            lr_state = 0
-        elif lr_state == 0:
-            keyboard.press('d')
-            lr_state = 1
-        elif lr_state == 1:
-            pass
-    elif moves[0] == "F ":
-        keyboard.press('f')
-        keyboard.release('f')
-    
+# asyncio queues
+quat_queue = asyncio.Queue()
+move_queue = asyncio.Queue()
+gyro_en_queue = asyncio.Queue()
+
+async def keyboard_handler():
+    fb_state = 0
+    lr_state = 0
+    while True:
+        moves = await move_queue.get()
+        if moves[0] == "L'":
+            if fb_state == 1:
+                pass
+            elif fb_state == 0:
+                keyboard.press('w')
+                fb_state = 1
+            elif fb_state == -1:
+                keyboard.release('s')
+                fb_state = 0
+        elif moves[0] == "L ":
+            if fb_state == 1:
+                keyboard.release('w')
+                fb_state = 0
+            elif fb_state == 0:
+                keyboard.press('s')
+                fb_state = -1
+            elif fb_state == -1:
+                pass
+        elif moves[0] == "U'":
+            if lr_state == -1:
+                pass
+            elif lr_state == 0:
+                keyboard.press('a')
+                lr_state = -1
+            elif lr_state == 1:
+                keyboard.release('d')
+                lr_state = 0
+        elif moves[0] == "U ":
+            if lr_state == -1:
+                keyboard.release('a')
+                lr_state = 0
+            elif lr_state == 0:
+                keyboard.press('d')
+                lr_state = 1
+            elif lr_state == 1:
+                pass
+        elif moves[0] == "F ":
+            keyboard.press('f')
+            keyboard.release('f')
+
+async def mouse_handler():
+    while True:
+        await asyncio.sleep(1)
+
 async def plt_plot():
     # viz
     fig = plt.figure()
@@ -142,8 +154,6 @@ async def plt_plot():
         plt.pause(0.001)
         await asyncio.sleep(0.001)
 
-cube = None
-quat_queue = asyncio.Queue()
 async def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
     global cube
     data = [int(i) for i in data]
@@ -178,20 +188,18 @@ async def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
                 # WRONG
                 print(f'WARNING wrong move: {m}')
                 pass
-        do_mskb(prev_moves)
+        await move_queue.put(prev_moves)
         print(f'move_cnt: {move_cnt}, {timeoffs}, {prev_moves}')
     elif mode == 4:
         print("reveived faces info")
     elif mode == 5:
-        print("reveived hardware info")
         hw_ver = f'{int(value[8:16], 2)}.{int(value[16:24], 2)}'
         sw_ver = f'{int(value[24:32], 2)}.{int(value[32:40], 2)}'
         dev_name = ''.join([chr(int(value[40 + i*8 : 48 + i*8], 2)) for i in range(8)])
         gyro_enable = int(value[104], 2) == 1
+        await gyro_en_queue.put(gyro_enable)
         print(f'hw_ver: {hw_ver}, sw_ver: {sw_ver}, dev_name: {dev_name}, gyro_enable: {gyro_enable}')
-
     elif mode == 9:
-        print("reveived battery info")
         battery = int(value[8:16], 2)
         print(f'battery: {battery}%')
     elif mode == 13:
@@ -262,6 +270,14 @@ async def main():
         await client.write_gatt_char(write_chrct, bytes(cube.encrypt(bts)))
         asyncio.create_task(ask_battery())
         asyncio.create_task(plt_plot())
+        asyncio.create_task(keyboard_handler())
+
+        gyro_en = await gyro_en_queue.get()
+        # only support gyro to mouse map
+        if gyro_en:
+            print("gyro air mouse enable")
+            asyncio.create_task(mouse_handler())
+
         while True:
             await asyncio.sleep(1)
 
