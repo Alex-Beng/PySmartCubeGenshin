@@ -1,16 +1,22 @@
 from aes import AES
 from gancube import GanCube
-from utils import devices_selection
+from utils import devices_selection, get_quaternion, quat2rotm
 
-import asyncio
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
 from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from pynput.keyboard import Key, Controller
 from pynput.mouse import Button, Controller as MController
 
+from math import atan2, asin, atan, sqrt, pi
+import asyncio
+from itertools import product, combinations
+
 # 重定向stdout到文件 or 直接输出到out_file
 import sys
 # sys.stdout = open('../data/stable_long3_gyro', 'w')
-out_file = open('./flip_out.txt', 'w')
+out_file = open('../data/freerot.bin', 'w')
 
 
 # Mouse and Keyboard
@@ -64,8 +70,8 @@ def do_mskb(moves: [str]):
     
 
 cube = None
-
-def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
+quat_queue = asyncio.Queue()
+async def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
     global cube
     data = [int(i) for i in data]
     
@@ -79,28 +85,13 @@ def gan_read_handler(sender: BleakGATTCharacteristic, data: bytearray):
     if dec[0] == 208:
         exit()
     
-    # print(' '.join([hex(d+256)[3:] for d in dec]), end="\n", file=out_file)
+    print(''.join([bin(d+256)[3:] for d in dec]), end="\n", file=out_file)
     if mode == 1:
-        
-        # print(' '.join(know_bits), end=" ")
-        # print(hex(int(value[68:80], 2) + 2**12)[3:])
-
-        # print(' '.join(know_bits2), end=" ")
-        # print(hex(int(value[144:156], 2) + 2**12)[3:])
-        
-        # diffs = [know_bits2_num[i] - know_bits_num[i] for i in range(4)]
-        # print(' '.join([str(d) for d in diffs]))
-        
-        # print(' '.join([hex(d+256)[3:] for d in dec]), end="\n")        
-        # print()
-        # print('\r' + ' '.join([hex(d+256)[3:] for d in dec]), end="")
-        pass
-    
-    # 采数据呢
-    # return
-    
-    if mode == 1:
-        pass
+        # get quat and rotm
+        qs = get_quaternion(dec)
+        rotms = [quat2rotm(q) for q in qs]
+        for qr in zip(qs, rotms):
+            await quat_queue.put(qr)
     elif mode == 2:
         move_cnt = int(value[4:12], 2)
         timeoffs = []
@@ -178,28 +169,86 @@ async def main():
         print(f"Connected to {cube.BRAND} CUBE")
 
         await client.start_notify(read_chrct, gan_read_handler)
-        while True:
-            await asyncio.sleep(0.1)
+        # 可视化
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        ax.set_aspect("auto")
+        ax.set_autoscale_on(True)
+        # draw cuboid
+        r = [-10, 10]
+        for s, e in combinations(np.array(list(product(r,r,r))), 2):
+            if np.sum(np.abs(s-e)) == r[1]-r[0]:
+                ax.plot3D(*zip(s,e), color="black")
+        # draw coors
+        coor_len = 10
+        coor_color = ['r', 'g', 'b']
+        for i in range(3):
+            s = [0]*3
+            e = [0]*3
+            s[i] = coor_len
+            ax.plot3D(*zip(s,e), color=coor_color[i])
+        # draw point
+        ax.scatter([0],[0],[0],color="black",s=100)
+        d = [-4, 4]
+        vertex = []
+        rad = 0
+        colors = ['r', 'g', 'b', 'y', 'c', 'm']
+        cnt = 0
+        # for s, e in combinations(np.array(list(product(d,d,d))), 2):
+        #     if np.sum(np.abs(s-e)) == d[1]-d[0]: 
+        #         # init vertex
+        #         v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
+        #         cnt += 1
+        #         vertex.append(v + [s, e])
+        # draw line
+        for i in range(3):
+            s = [0]*3
+            e = [0]*3
+            e[i] = - coor_len // 2
+            # v = ax.plot3D(*zip(s, e), color=coor_color[i])
+            # vertex.append(v + [s, e])
+        # draw gravity
+        s = [0]*3 
+        e = [0]*3
+        v = ax.plot3D(*zip(s, e), color='pink')
+        vertex.append(v + [s, e])
+
+        async def update_plot():
+            while True:
+                q, rotm = await quat_queue.get()
+
+                for v, s, e in vertex[:-1]:
+                    # apply rotation matrix to each vertex
+                    s_rotated = np.dot(rotm, s)
+                    e_rotated = np.dot(rotm, e)
+                    v.set_data_3d(*zip(s_rotated,e_rotated))
+                # update gravity
+                v, s, e = vertex[-1]
+                e[0] = 2 * (q[1]*q[3] - q[0]*q[2])
+                e[1] = 2 * (q[0]*q[1] + q[2]*q[3])
+                e[2] = q[0]**2 - q[1]**2 - q[2]**2 + q[3]**2
+
+                # compute ypr
+                ypr = [0]*3
+                ypr[0] = atan2(2*q[1]*q[2] - 2*q[0]*q[3], 2*q[0]*q[0] + 2*q[1]*q[1] - 1)
+                ypr[1] = atan(e[0] / sqrt(e[1]*e[1] + e[2]*e[2]))
+                ypr[2] = atan(e[1] / sqrt(e[0]*e[0] + e[2]*e[2]))
+                ypr = [i*180/pi for i in ypr]
+                # print(f'ypr: {ypr}')
+                # print(f'grav: {e}')
+
+                e = [-i*10 for i in e]
+                v.set_data_3d(*zip(s,e))
+                plt.draw()
+                plt.pause(0.001)
+                await asyncio.sleep(0.001)
+                
+        plt.show(block=False)
+        await update_plot()
 
 
 if __name__ == "__main__":
     asyncio.run(main())
+    out_file.close()
     exit()
-
-    # key: [139, 166, 161, 92, 67, 61, 22, 7, 32, 5, 24, 84, 66, 17, 18, 83] 
-    # iv: [155, 167, 145, 92, 51, 172, 118, 39, 32, 149, 120, 20, 50, 18, 2, 67]
-    
-    key = [139, 166, 161, 92, 67, 61, 22, 7, 32, 5, 24, 84, 66, 17, 18, 83] 
-    iv  = [155, 167, 145, 92, 51, 172, 118, 39, 32, 149, 120, 20, 50, 18, 2, 67]
-
-    AES = AES(key)
-
-    bts = [0]*20
-    bts[0] = 5
-
-    # encrypt
-    enc = AES.encrypt([bts[i] ^ iv[i] for i in range(16)]) + [0]*4
-    enc = enc[:4] + AES.encrypt([enc[i+4] ^ iv[i] for i in range(16)])
-    
-    print(enc)
 
