@@ -1,6 +1,5 @@
 from utils import get_quaternion, quat2rotm
 
-from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 import numpy as np
 from itertools import product, combinations
@@ -60,12 +59,12 @@ vertex = []
 rad = 0
 colors = ['r', 'g', 'b', 'y', 'c', 'm']
 cnt = 0
-# for s, e in combinations(np.array(list(product(d,d,d))), 2):
-#     if np.sum(np.abs(s-e)) == d[1]-d[0]: 
-#         # init vertex
-#         v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
-#         cnt += 1
-#         vertex.append(v + [s, e])
+for s, e in combinations(np.array(list(product(d,d,d))), 2):
+    if np.sum(np.abs(s-e)) == d[1]-d[0]: 
+        # init vertex
+        v = ax.plot3D(*zip(s, e), color=colors[cnt%len(colors)])
+        cnt += 1
+        vertex.append(v + [s, e])
 # draw line
 for i in range(3):
     s = [0]*3
@@ -82,9 +81,8 @@ vertex.append(v + [s, e])
 rotm_gen = rorate_mat_generator('../data/yrot.bin')
 rotms = [m for m in rotm_gen]
 
-def update(frame, vertex, rad):
+def update(frame):
     print(f"f: {frame}")
-    rad += 1*frame
 
     q, rotm = rotms[frame]
     for v, s, e in vertex[:-1]:
@@ -102,7 +100,7 @@ def update(frame, vertex, rad):
 
     return vertex
 
-ani = animation.FuncAnimation(fig, update, frames=len(rotms), fargs=(vertex, rad), interval=50)
+ani = animation.FuncAnimation(fig, update, interval=50)
 
 plt.show()
 # ani.save('../data/test2.gif', writer='imagemagick', fps=30)
