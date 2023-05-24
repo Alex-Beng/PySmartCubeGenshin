@@ -1,3 +1,5 @@
+from math import atan2, asin, atan, sqrt, pi
+
 from scipy.spatial.transform import Rotation
 import numpy as np
 
@@ -43,6 +45,22 @@ def quat2rotm(q):
     # forgive for this shit
 
     return Rotation.from_quat(q).as_matrix()
+
+def quat2gravity(q):
+    e = [0]*3
+    e[0] = 2 * (q[1]*q[3] - q[0]*q[2])
+    e[1] = 2 * (q[0]*q[1] + q[2]*q[3])
+    e[2] = q[0]**2 - q[1]**2 - q[2]**2 + q[3]**2
+    return e
+
+def quat2ypr(q):
+    e = quat2gravity(q)
+    ypr = [0]*3
+    ypr[0] = atan2(2*q[1]*q[2] - 2*q[0]*q[3], 2*q[0]*q[0] + 2*q[1]*q[1] - 1)
+    ypr[1] = atan(e[0] / sqrt(e[1]*e[1] + e[2]*e[2]))
+    ypr[2] = atan(e[1] / sqrt(e[0]*e[0] + e[2]*e[2]))
+    ypr = [i*180/pi for i in ypr]
+    return ypr
 
 def devices_selection(devices):
     selected_device = None

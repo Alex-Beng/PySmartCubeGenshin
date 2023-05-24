@@ -1,6 +1,7 @@
 from aes import AES
 from gancube import GanCube
 from utils import devices_selection, get_quaternion, quat2rotm, quat2ypr, quat2gravity
+from keymap import move_handler
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -38,49 +39,9 @@ move_queue = asyncio.Queue()
 gyro_en_queue = asyncio.Queue()
 
 async def keyboard_handler():
-    fb_state = 0
-    lr_state = 0
     while True:
         moves = await move_queue.get()
-        if moves[0] == "L'":
-            if fb_state == 1:
-                pass
-            elif fb_state == 0:
-                keyboard.press('w')
-                fb_state = 1
-            elif fb_state == -1:
-                keyboard.release('s')
-                fb_state = 0
-        elif moves[0] == "L ":
-            if fb_state == 1:
-                keyboard.release('w')
-                fb_state = 0
-            elif fb_state == 0:
-                keyboard.press('s')
-                fb_state = -1
-            elif fb_state == -1:
-                pass
-        elif moves[0] == "U'":
-            if lr_state == -1:
-                pass
-            elif lr_state == 0:
-                keyboard.press('a')
-                lr_state = -1
-            elif lr_state == 1:
-                keyboard.release('d')
-                lr_state = 0
-        elif moves[0] == "U ":
-            if lr_state == -1:
-                keyboard.release('a')
-                lr_state = 0
-            elif lr_state == 0:
-                keyboard.press('d')
-                lr_state = 1
-            elif lr_state == 1:
-                pass
-        elif moves[0] == "F ":
-            keyboard.press('f')
-            keyboard.release('f')
+        move_handler(moves, keyboard, mouse)
 
 async def mouse_handler():
     # pitch and roll zero calibration for 50 times
