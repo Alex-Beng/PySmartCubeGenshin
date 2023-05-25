@@ -1,0 +1,7 @@
+bleak==0.20.2
+bleak-winrt==1.2.0
+numpy==1.23.5
+matplotlib==3.7.1
+pynput==1.7.6
+PyDirectInput==1.0.4
+PyAutoGUI==0.9.53
