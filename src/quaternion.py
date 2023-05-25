@@ -2,9 +2,10 @@ from utils import get_quaternion, quat2rotm
 
 import matplotlib.pyplot as plt
 import numpy as np
-from itertools import product, combinations
 import matplotlib.animation as animation
 from numpy import sin, cos
+
+from itertools import product, combinations
 
 
 def rorate_mat_generator(file_path):
