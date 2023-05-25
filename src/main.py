@@ -17,10 +17,11 @@ from math import atan2, asin, atan, sqrt, pi
 import asyncio
 from itertools import product, combinations
 
-# 重定向stdout到文件 or 直接输出到out_file
+# redirect stdout to file
 import sys
 # sys.stdout = open('../data/stable_long3_gyro', 'w')
-out_file = open('../data/freerot.bin', 'w')
+# or just output to file
+out_file = open('./freerot.bin', 'w')
 
 def move_mouse(x, y):
     pydirectinput.move(x, y, relative=True)
@@ -271,7 +272,6 @@ async def main():
         # only support gyro to mouse map
         if gyro_en:
             print("gyro air mouse enable")
-            # 需要
             asyncio.create_task(mouse_handler())
 
         while True:
