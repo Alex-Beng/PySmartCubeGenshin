@@ -12,6 +12,7 @@ from pynput.mouse import Button, Controller as MController
 import pydirectinput # for mouse
 pydirectinput.PAUSE = 0
 
+import platform
 from ctypes import windll, c_uint
 from math import atan2, asin, atan, sqrt, pi
 import asyncio
@@ -209,7 +210,11 @@ async def main():
 
     # Search BLE CUBEs
     print("Searching for CUBEs...")
-    devices = await BleakScanner.discover()
+    sys_name = platform.system()
+    if sys_name == "darwin":
+        devices = await BleakScanner.discover(return_adv=True, cb=dict(use_bdaddr=True))
+    else:
+        devices = await BleakScanner.discover()
 
     possible_devices = []
     for d in devices:
