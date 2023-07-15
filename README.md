@@ -28,7 +28,7 @@ while True:
 
 ```
 
-video demostration avilable at: [bilibili](https://www.bilibili.com/video/BV1Ku4y1f7rh)
+video demostration avilable at: [bilibili](https://www.bilibili.com/video/BV1Ku4y1f7rh), [youtube](https://www.youtube.com/watch?v=9CwsR6d1ggQ)
 
 ## Requirements
 
