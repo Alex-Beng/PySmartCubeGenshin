@@ -4,10 +4,12 @@
 
 ## Introduction
 
-This (Toy) project is a demostration of using Smart (barely GAN-only now) Cube to play Genshin Impact with Python.
+English | [中文](./README_CN.md)
+
+This (Toy) project is a demostration of using Smart Cube (GAN-only now) to play Genshin Impact with Python.
 
 
-with BLE-enable computer, you can use this project to receive turning and gyroscope(quaternion actually) info from Smart Cube. With these info, you can mapping turning and rotating to keyboard and mouse press, click or move, which make it able to control your character in Genshin Impact. 
+with BLE-enable computer, you can use this project to receive turning and gyroscope infos(quaternion actually) from Smart Cube. With these infos, you can mapping turning and rotating to keyboard and mouse press, click or move, which make it able to control your character in Genshin Impact. 
 
 
 The whole project is based on asyncio. The main loop barely do NOTHING but SLEEP :), which is like this:
@@ -28,7 +30,7 @@ while True:
 
 ```
 
-video demostration avilable at: [bilibili](https://www.bilibili.com/video/BV1Ku4y1f7rh), [youtube](https://www.youtube.com/watch?v=9CwsR6d1ggQ)
+video demostration is avilable at: [bilibili](https://www.bilibili.com/video/BV1Ku4y1f7rh), [youtube](https://www.youtube.com/watch?v=9CwsR6d1ggQ)
 
 ## Requirements
 
