@@ -75,10 +75,10 @@ currently, the mapping is hard coded in the `keymap.py` and `mouse_handler` func
 |---|---|
 |Rotate clockwise/counter around the B axis |mouse x movement|
 |Rotate clockwise/counter around the R axis |mouse y movement|
-|[L L']+ | key 'w' and 's' and 'shife' state |
+|[L L']+ | key 'w' and 's' and 'shift' state |
 |[U U']+ | key 'a' and 'd' state |
 | F' | space |
-| D | shife |
+| D | shift |
 | D' | X |
 | R | mouse left click |
 | R' + R' | press key 'e' for 1s |
